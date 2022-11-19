@@ -20,15 +20,15 @@ using json = nlohmann::json;
 
 #define SAFE_CLOSE(s) platform::vclose(s); s = NULL
 
-class wsa_error : public std::exception {
+class wsa_error : public std::logic_error {
   public:
-    using _Mybase = std::exception;
+    using _Mybase = std::logic_error;
     explicit wsa_error(const std::string& _Message) : _Mybase(_Message.c_str()) {}
     explicit wsa_error(const char* _Message) : _Mybase(_Message) {}
 };
-class win_error : public std::exception {
+class win_error : public std::logic_error {
   public:
-    using _Mybase = std::exception;
+    using _Mybase = std::logic_error;
     explicit win_error(const std::string& _Message) : _Mybase(_Message.c_str()) {}
     explicit win_error(const char* _Message) : _Mybase(_Message) {}
 };
