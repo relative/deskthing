@@ -3,7 +3,7 @@
   #include <Windows.h>
 #endif
 #include "common.h"
-
+#include "ws.h"
 
 int main(int argc, char** argv) {
   try {
@@ -18,6 +18,8 @@ int main(int argc, char** argv) {
 
 
     gCarThingManager = new CarThingManager();
+
+    websocket::wsThread = std::thread(&websocket::start);
 
     platform::startListening();
 

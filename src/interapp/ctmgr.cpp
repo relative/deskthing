@@ -21,3 +21,11 @@ void CarThingManager::removeDeviceBySocket(SOCKET s) {
   tmp = std::move(*it);
   devices.erase(it);
 }
+
+void CarThingManager::publish(std::string& topic, nlohmann::json& details) {
+  std::lock_guard guard(mutDevice);
+  auto id = ++publicationId;
+  for (const auto& dev : devices) {
+    dev->publish(topic, details, id);
+  }
+}

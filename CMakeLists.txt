@@ -25,6 +25,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar")
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_path(UWEBSOCKETS_INCLUDE_DIRS "uwebsockets/App.h")
+
+find_library(LIBUV_LIB libuv)
+find_library(USOCKETS_LIB usockets)
+
+MESSAGE(STATUS "LIBUV_LIB:${LIBUV_LIB}")
+MESSAGE(STATUS "USOCKETS_LIB:${USOCKETS_LIB}")
 
 add_executable(deskthing 
   src/main.cpp src/common.h 
@@ -34,8 +42,15 @@ add_executable(deskthing
   src/interapp/ia.cpp src/interapp/ia.h
 
   src/platform/platform.h src/platform/win32.cpp
+
+  src/ws.cpp src/ws.h
 )
 
-target_link_libraries(deskthing PRIVATE nlohmann_json::nlohmann_json)
-target_link_libraries(deskthing PRIVATE WS2_32.lib)
+target_include_directories(deskthing PRIVATE ${UWEBSOCKETS_INCLUDE_DIRS})
+target_link_libraries(deskthing PRIVATE 
+  nlohmann_json::nlohmann_json
+  ZLIB::ZLIB
+  ${LIBUV_LIB} ${USOCKETS_LIB}
+)
+target_link_libraries(deskthing PRIVATE Shlwapi.lib wbemuuid.lib iphlpapi.lib Kernel32.lib Psapi.lib Userenv.lib WS2_32.lib)
 set_property(TARGET deskthing PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

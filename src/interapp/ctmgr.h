@@ -9,9 +9,11 @@ class CarThingManager {
     CarThingManager() {};
     void addDevice(std::shared_ptr<CarThing> ct);
     void removeDeviceBySocket(SOCKET s);
+    void publish(std::string& topic, nlohmann::json& details);
   private:
     std::vector<std::shared_ptr<CarThing>> devices;
     std::mutex mutDevice;
+    int publicationId = 0;
 };
 
 extern CarThingManager* gCarThingManager;

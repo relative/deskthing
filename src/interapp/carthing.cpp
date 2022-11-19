@@ -1,6 +1,7 @@
 #include "carthing.h"
 #include "ia.h"
 #include "../common.h"
+#include "../ws.h"
 
 std::shared_ptr<CarThing> CarThing::create(SOCKET s) {
   auto ct = std::shared_ptr<CarThing>(new CarThing(s));
@@ -13,8 +14,12 @@ CarThing::~CarThing() {
   thrd.detach();
 }
 
-int CarThing::send(json& j) { return interapp::sendPacket(sock, j); }
-int CarThing::send(const json& j) { return interapp::sendPacket(sock, const_cast<json&>(j)); }
+int CarThing::send(json& j) { 
+  std::lock_guard guard(mutSend);
+  return interapp::sendPacket(sock, j);
+}
+// Wrapper around the above function
+int CarThing::send(const json& j) { return send(const_cast<json&>(j)); }
 
 namespace {
   void dump(json& j) {
@@ -28,9 +33,13 @@ namespace {
 }
 
 void CarThing::subscribe(int reqId, std::string topic) {
+  std::lock_guard guard(mutSub);
   int subId = ++subscriptionId;
   printf("[%i] Subscribing to %s (%i)\n", reqId, topic.c_str(), subId);
   subscriptions[topic] = subId;
+
+  websocket::requestState(topic);
+
   send({
     MessageCode::SUBSCRIBED,
     reqId,
@@ -39,6 +48,7 @@ void CarThing::subscribe(int reqId, std::string topic) {
 }
 void CarThing::unsubscribe(int reqId, int subId) {
   printf("[%i] Unsubscribing from %i\n", reqId, subId);
+  std::lock_guard guard(mutSub);
   std::erase_if(subscriptions, [&](const auto& p) {
     auto const& [key, value] = p;
     return value == subId;
@@ -93,8 +103,8 @@ void CarThing::processMessage(json& j) {
             {"app_version", "8.7.82.94"},
             {"date_time", ss.str()},
             {"roles", {
-              {"broker", {}},
-              {"dealer", {}}
+              {"broker", json::object({})},
+              {"dealer", json::object({})}
             }}
           }
         });
@@ -122,7 +132,7 @@ void CarThing::processMessage(json& j) {
         if (jSz >= 6 && j[5].type() != json::value_t::object) throw std::runtime_error("ArgumentsKw invalid type");
         std::string proc = j[3].get<std::string>();
         json args = json::array({});
-        json argsKw = {};
+        json argsKw = json::object({});
         if (jSz >= 5) args = j[4];
         if (jSz >= 6) argsKw = j[5];
         processRPC(reqId, proc, args, argsKw);
@@ -182,21 +192,57 @@ void CarThing::poll() {
   gCarThingManager->removeDeviceBySocket(sock);
 }
 
-int CarThing::processRPC(int reqId, std::string proc, json& args, json& argsKw) {
+int CarThing::publish(std::string& topic, json& details, int publicationId) {
+  std::lock_guard guard(mutSub);
+  int subId = subscriptions[topic];
+  return send({
+    MessageCode::EVENT,
+    subId,
+    publicationId,
+    json::object({}),
+    json::array({}),
+    details
+  });
+}
+
+static std::vector<std::string> forwardedProcedures {
+  "com.spotify.superbird.volume.volume_up",
+  "com.spotify.superbird.volume.volume_down",
+  
+  "com.spotify.superbird.pause",
+  "com.spotify.set_playback_speed", //
+
+  "com.spotify.superbird.graphql",
+  "com.spotify.superbird.presets.set_preset",
+  "com.spotify.superbird.seek_to",
+
+  "com.spotify.get_saved",
+  "com.spotify.get_children_of_item",
+
+  "com.spotify.get_thumbnail_image",
+  "com.spotify.get_image",
+  "com.spotify.superbird.get_home",
+
+  "com.spotify.superbird.remote_configuration"
+};
+
+int CarThing::processRPC(int reqId, std::string& proc, json& args, json& argsKw) {
+  auto shouldForward = std::find(forwardedProcedures.begin(), forwardedProcedures.end(), proc) != forwardedProcedures.end();
+  if (shouldForward) {
+    websocket::requestCall(reqId, proc, args, argsKw);
+    return 0;
+  }
+  
   if (proc != "com.spotify.superbird.instrumentation.log" && proc != "com.spotify.superbird.pitstop.log") {
     printf("[%i] RPC call received for %s(#args=%llu, #argsKw=%llu)\n", 
       reqId, proc.c_str(), args.size(), argsKw.size());
-  }
-
-  if (proc == "com.spotify.superbird.voice.data") {
-    printf("\n%s\n%s\n", args.dump(4).c_str(), argsKw.dump(4).c_str());
   }
 
   if (proc == "com.spotify.superbird.permissions") {
     return send({
       MessageCode::RESULT,
       reqId,
-      {},
+      json::object({}),
       {
         {"can_use_superbird", true}
       }
