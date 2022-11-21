@@ -31,7 +31,68 @@ interface DTSContext {
   type: string
   uri: string
 }
-type DTSPlayer = any
+export interface DTSRefPair {
+  name: string
+  uri: string
+}
+export interface DTSTrack {
+  album: DTSRefPair
+  artist: DTSRefPair
+  artists: DTSRefPair[]
+  duration_ms: number
+  image_bytes: null
+  image_id: string | null
+  name: string
+  saved: boolean
+  uid: string
+  uri: string
+  is_episode: boolean
+  is_podcast: boolean
+}
+
+// why
+interface DTSPlayQueueItemArtist {
+  a: string // name
+  b: string // uri
+  name: string
+  uri: string
+}
+export interface DTSPlayQueueItem {
+  artist_name: string
+  artists: DTSPlayQueueItemArtist[]
+  image_uri: string
+  name: string
+  provider: string
+  uid: string
+  uri: string
+}
+interface DTSPlayQueue {
+  current?: DTSPlayQueueItem
+  next?: DTSPlayQueueItem[] // n items
+  previous?: DTSPlayQueueItem[] // 10 items
+}
+interface DTSPlayer {
+  currently_active_application: null
+  context_title: null
+  context_uri: string
+  playback_options: {
+    repeat: number
+    shuffle: boolean
+  }
+  playback_position: number
+  playback_restrictions: {
+    can_repeat_context: boolean
+    can_repeat_track: boolean
+    can_seek: boolean
+    can_skip_next: boolean
+    can_skip_prev: boolean
+    can_toggle_shuffle: boolean
+  }
+  playback_speed: number
+  track: DTSTrack
+  is_paused: boolean
+  is_paused_bool: boolean
+}
 const contextStore = create<DTSContext>(() => ({
   can_repeat_context: true,
   can_repeat_track: true,
@@ -45,6 +106,7 @@ const contextStore = create<DTSContext>(() => ({
   type: 'your_library',
   uri: 'spotify:user:snip:collection',
 }))
+const playQueueStore = create<DTSPlayQueue>(() => ({}))
 const sessionStore = create<DTSSession>(() => ({
   is_offline: false,
   is_in_forced_offline_mode: false,
@@ -116,6 +178,7 @@ const playerStore = create<DTSPlayer>(() => ({
 
 export const storeMap = {
   'com.spotify.current_context': contextStore,
+  'com.spotify.play_queue': playQueueStore,
   'com.spotify.session_state': sessionStore,
   'com.spotify.status': statusStore,
   'com.spotify.podcast_playback_speed': podcastStore,
@@ -126,4 +189,12 @@ export const storeMap = {
 
 export type SpTopic = keyof typeof storeMap
 
-export { sessionStore, statusStore, podcastStore, volumeStore }
+export {
+  contextStore,
+  playQueueStore,
+  sessionStore,
+  statusStore,
+  podcastStore,
+  volumeStore,
+  playerStore,
+}

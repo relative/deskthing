@@ -46,12 +46,31 @@ void websocket::start() {
       auto str = std::string(msg);
       try {
         auto j = json::parse(str);
-        if (!j.contains("topic")) return;
-        if (!j.contains("state")) return;
-        auto topic = j["topic"].get<std::string>();
-        auto state = j["state"];
+        if (j.contains("result")) {
+          auto result = j["result"];
+          if (!result.contains("devId")) return;
+          if (!result.contains("reqId")) return;
+          auto devId = result["devId"].get<int>();
+          auto reqId = result["reqId"].get<int>();
 
-        gCarThingManager->publish(topic, state);
+          auto details = json::object({});
+          
+          // this should be an array, but spotify uses it as a dict
+          auto args = json::object({}); 
+
+          auto argsKw = json::object({});
+          
+          if (result.contains("details")) details = result["details"];
+          if (result.contains("args")) args = result["args"];
+          if (result.contains("argsKw")) argsKw = result["argsKw"];
+          gCarThingManager->reply(devId, reqId, details, args, argsKw);
+        } else {
+          if (!j.contains("topic")) return;
+          if (!j.contains("state")) return;
+          auto topic = j["topic"].get<std::string>();
+          auto state = j["state"];
+          gCarThingManager->publish(topic, state);
+        }
       } catch (std::exception& ex) {
         fprintf(stderr, "[ERR] %s\n", ex.what());
       }
@@ -77,9 +96,10 @@ void websocket::requestState(std::string& topic) {
   });
 }
 
-void websocket::requestCall(int reqId, std::string& proc, json& args, json& argsKw) {
+void websocket::requestCall(int devId, int reqId, std::string& proc, json& args, json& argsKw) {
   broadcast({
-    {"id", reqId},
+    {"devId", devId},
+    {"reqId", reqId},
     {"proc", proc},
     {"args", args},
     {"argsKw", argsKw}

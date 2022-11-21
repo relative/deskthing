@@ -20,6 +20,8 @@ class CarThing {
     void subscribe(int reqId, std::string topic);
     void unsubscribe(int reqId, int subId);
     int publish(std::string& topic, nlohmann::json& details, int publicationId);
+
+    int devId = 0;
   private:
     CarThing(SOCKET s) : sock(s) {};
 

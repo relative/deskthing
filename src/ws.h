@@ -17,7 +17,7 @@ namespace websocket {
   void broadcast(nlohmann::json& j);
   void broadcast(const nlohmann::json& j);
   void requestState(std::string& topic);
-  void requestCall(int reqId, std::string& proc, nlohmann::json& args, nlohmann::json& argsKw);
+  void requestCall(int devId, int reqId, std::string& proc, nlohmann::json& args, nlohmann::json& argsKw);
 }
 
 #endif /* WS_H */

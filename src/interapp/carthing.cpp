@@ -172,6 +172,7 @@ void CarThing::poll() {
         }
       }
 
+      queueHasSize = queue.size() >= 4;
       if (queueHasSize) {
         uint32_t wantedSize = queue[3] | queue[2] << 8 | queue[1] << 16 | queue[0] << 24;
         if (queue.size() - 4 >= wantedSize) {
@@ -189,7 +190,7 @@ void CarThing::poll() {
     }
   }
 
-  gCarThingManager->removeDeviceBySocket(sock);
+  gCarThingManager->removeDeviceById(devId);
 }
 
 int CarThing::publish(std::string& topic, json& details, int publicationId) {
@@ -209,9 +210,15 @@ static std::vector<std::string> forwardedProcedures {
   "com.spotify.superbird.volume.volume_up",
   "com.spotify.superbird.volume.volume_down",
   
-  "com.spotify.superbird.pause",
-  "com.spotify.set_playback_speed", //
+  "com.spotify.superbird.skip_previous",
+  "com.spotify.skip_previous",
+  "com.spotify.superbird.skip_next",
+  "com.spotify.skip_next",
 
+  "com.spotify.superbird.pause",
+  "com.spotify.superbird.resume",
+  "com.spotify.set_playback_speed",
+  
   "com.spotify.superbird.graphql",
   "com.spotify.superbird.presets.set_preset",
   "com.spotify.superbird.seek_to",
@@ -223,17 +230,23 @@ static std::vector<std::string> forwardedProcedures {
   "com.spotify.get_image",
   "com.spotify.superbird.get_home",
 
-  "com.spotify.superbird.remote_configuration"
+  "com.spotify.superbird.remote_configuration",
+
+  "com.spotify.superbird.tipsandtricks.get_tips_and_tricks"
 };
 
 int CarThing::processRPC(int reqId, std::string& proc, json& args, json& argsKw) {
   auto shouldForward = std::find(forwardedProcedures.begin(), forwardedProcedures.end(), proc) != forwardedProcedures.end();
   if (shouldForward) {
-    websocket::requestCall(reqId, proc, args, argsKw);
+    websocket::requestCall(devId, reqId, proc, args, argsKw);
     return 0;
   }
   
-  if (proc != "com.spotify.superbird.instrumentation.log" && proc != "com.spotify.superbird.pitstop.log") {
+  if (
+    proc != "com.spotify.superbird.instrumentation.log" && 
+    proc != "com.spotify.superbird.pitstop.log" &&
+    proc != "com.spotify.superbird.instrumentation.request"
+  ) {
     printf("[%i] RPC call received for %s(#args=%llu, #argsKw=%llu)\n", 
       reqId, proc.c_str(), args.size(), argsKw.size());
   }
@@ -246,6 +259,13 @@ int CarThing::processRPC(int reqId, std::string& proc, json& args, json& argsKw)
       {
         {"can_use_superbird", true}
       }
+    });
+  } else if (proc == "com.spotify.superbird.register_device") {
+    return send({
+      MessageCode::RESULT,
+      reqId,
+      json::object({}),
+      json::object({})
     });
   }
 
